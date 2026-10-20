@@ -30,7 +30,7 @@ async function call(path, body) {
 }
 
 console.log(`→ Menerapkan schema SQL ke ${subdomain} (${region})`);
-const sql = await readFile('nhost/schema.sql', 'utf8');
+const sql = await readFile('database/schema.sql', 'utf8');
 const r1 = await call('/v2/query', { type: 'run_sql', args: { source: 'default', sql, cascade: false, read_only: false } });
 if (!r1.ok) {
   console.error('Gagal menjalankan SQL:', JSON.stringify(r1.json, null, 2));

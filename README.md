@@ -38,13 +38,20 @@ Mode demo langsung bisa dipakai. Catatan pribadi baru bisa dipakai setelah **set
    npm run setup:nhost
    ```
    Script ini idempoten (aman dijalankan ulang). Isinya:
-   - membuat tabel, constraint, dan trigger dari [nhost/schema.sql](nhost/schema.sql);
+   - membuat tabel, constraint, dan trigger dari [database/schema.sql](database/schema.sql);
    - men-track tabel di Hasura;
    - memberi role `user` permission select/insert/update/delete yang dibatasi `user_id = X-Hasura-User-Id`.
 3. Di dashboard Nhost, buka **Authentication** lalu periksa:
    - **Client URL / Allowed redirect URLs** memuat `http://localhost:3000`, juga URL produksi bila sudah di-deploy.
    - **Email verification**: bila diaktifkan, pengguna baru harus mengklik tautan verifikasi sebelum bisa masuk.
 4. **Disarankan:** matikan **Public access** Postgres di Database Settings. Aplikasi tidak memakainya, karena semua akses lewat GraphQL dengan JWT. Akses publik langsung ke port 5432 hanya menambah permukaan serangan. Nyalakan lagi sementara bila Anda perlu klien SQL.
+
+## Deploy (GitHub → Vercel)
+
+- Produksi: https://dompetqu-personal.vercel.app. Setiap push ke `master` di GitHub otomatis di-deploy oleh Vercel.
+- [vercel.json](vercel.json) mengatur build Vite (`dist/`), cache aset, dan header keamanan. CSP membatasi koneksi hanya ke endpoint Auth & GraphQL Nhost proyek ini.
+- Tidak perlu env var di Vercel. Subdomain & region Nhost adalah identitas publik dan punya nilai bawaan di [src/data/config.ts](src/data/config.ts). `VITE_NHOST_*` tetap bisa dipakai untuk menimpanya.
+- Tautan verifikasi email & atur ulang kata sandi kembali ke domain tempat pengguna mendaftar (`redirectTo`). Domain itu harus diizinkan di Nhost: **Authentication → Allowed Redirect URLs** memuat `https://dompetqu-personal.vercel.app` dan `http://localhost:3000`.
 
 ## Struktur
 
@@ -59,7 +66,7 @@ src/
   components/ RetroWindow, MoneyCard, AmountInput, Dialog, grafik SVG + tabel alternatif, dll.
   styles/    token & komponen (global.css), print A4 (print.css)
   tests/     fixture acceptance, domain, integrasi IndexedDB
-nhost/schema.sql   schema Postgres + trigger
+database/schema.sql   schema Postgres + trigger
 public/assets/retro ilustrasi (PNG + WebP, dari Assets/)
 ```
 

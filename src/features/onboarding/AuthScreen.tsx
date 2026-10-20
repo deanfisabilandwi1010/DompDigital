@@ -91,3 +91,51 @@ export function AuthScreen({ onBack }: { onBack: () => void }) {
     </main>
   );
 }
+
+/** Setelah membuka tautan atur ulang kata sandi: pengguna sudah masuk dan menetapkan kata sandi baru. */
+export function SetPasswordScreen({ onDone }: { onDone: () => void }) {
+  const [password, setPassword] = useState('');
+  const [again, setAgain] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (password.length < 9) return setError('Kata sandi minimal 9 karakter.');
+    if (password !== again) return setError('Kedua kata sandi tidak sama.');
+    setBusy(true);
+    setError(null);
+    try {
+      await auth.changePassword(password);
+      onDone();
+    } catch (x) {
+      setError((x as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <main className="welcome">
+      <section className="window welcome__card" aria-labelledby="pw-title">
+        <div className="window__bar window__bar--sage">
+          <span className="window__dots" aria-hidden="true"><span /><span /></span>
+          <span className="window__title">sandi-baru.exe</span>
+        </div>
+        <div className="window__body stack">
+          <h1 id="pw-title" style={{ fontSize: '1.5rem' }}>Atur kata sandi baru</h1>
+          <p className="muted small">Anda masuk lewat tautan atur ulang. Tetapkan kata sandi baru untuk akun {auth.user?.email}.</p>
+          {error && <div className="error-summary" role="alert">{error}</div>}
+          <form onSubmit={submit} className="stack" noValidate>
+            <Field label="Kata sandi baru" htmlFor="pw-new" hint="Minimal 9 karakter.">
+              <input id="pw-new" className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" autoFocus />
+            </Field>
+            <Field label="Ulangi kata sandi" htmlFor="pw-again">
+              <input id="pw-again" className="input" type="password" value={again} onChange={(e) => setAgain(e.target.value)} autoComplete="new-password" />
+            </Field>
+            <button className="btn btn--primary btn--block" disabled={busy}>{busy ? 'Menyimpan…' : 'Simpan kata sandi'}</button>
+          </form>
+          <button className="link-btn small" onClick={onDone}>Lewati untuk sekarang</button>
+        </div>
+      </section>
+    </main>
+  );
+}

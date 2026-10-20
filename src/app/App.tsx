@@ -7,7 +7,7 @@ import { NHOST } from '../data/config';
 import type { LocalRepository } from '../data/localRepository';
 import { NhostRepository } from '../data/nhostRepository';
 import type { Repository } from '../data/repository';
-import { AuthScreen } from '../features/onboarding/AuthScreen';
+import { AuthScreen, SetPasswordScreen } from '../features/onboarding/AuthScreen';
 import { Onboarding } from '../features/onboarding/Onboarding';
 import { Welcome } from '../features/onboarding/Welcome';
 import { TxUiProvider } from '../features/transactions/TxUi';
@@ -60,9 +60,13 @@ function Gate() {
 
 export function App() {
   const [phase, setPhase] = useState<Phase>(() => {
+    // Kembali dari tautan email Nhost (verifikasi / atur ulang kata sandi) → selalu mode pribadi.
+    const q = new URLSearchParams(window.location.search);
+    if (q.has('refreshToken') || q.has('error')) return { kind: 'loading', mode: 'personal' };
     const m = readMode();
     return m ? { kind: 'loading', mode: m } : { kind: 'choose' };
   });
+  const [mustSetPassword, setMustSetPassword] = useState(false);
 
   const start = useCallback(async (mode: Mode) => {
     writeMode(mode);
@@ -76,6 +80,7 @@ export function App() {
       if (!NHOST.configured) throw new Error('Konfigurasi Nhost belum diisi. Lihat README.');
       const user = await auth.init();
       if (!user) return setPhase({ kind: 'auth' });
+      if (auth.passwordResetPending) setMustSetPassword(true);
       const repo = new NhostRepository();
       setPhase({ kind: 'ready', mode, repo, ds: await repo.load(), userId: user.id });
     } catch (e) {
@@ -158,6 +163,10 @@ export function App() {
       );
       break;
     case 'ready':
+      if (mustSetPassword) {
+        body = <SetPasswordScreen onDone={() => setMustSetPassword(false)} />;
+        break;
+      }
       body = (
         <SessionCtx.Provider value={session}>
           <DataProvider key={`${phase.mode}:${phase.userId}`} mode={phase.mode} repo={phase.repo} initial={phase.ds} channelName={`kantong-sync-${phase.mode}-${phase.userId}`}>

@@ -72,6 +72,8 @@ const MESSAGES: Record<string, string> = {
   'invalid-request': 'Permintaan tidak valid.',
   'signup-disabled': 'Pendaftaran akun baru dinonaktifkan di proyek Nhost ini.',
   'too-many-requests': 'Terlalu banyak percobaan. Tunggu sebentar.',
+  'redirectTo-not-allowed': `Alamat ${typeof window !== 'undefined' ? window.location.origin : ''} belum diizinkan di Nhost (Authentication → Allowed Redirect URLs).`,
+  'invalid-refresh-token': 'Tautan sudah kedaluwarsa atau sudah dipakai. Silakan masuk.',
 };
 
 async function post<T>(path: string, body: unknown, token?: string): Promise<T> {
@@ -137,8 +139,29 @@ class NhostAuth {
     this.timer = window.setTimeout(() => void this.getAccessToken().catch(() => undefined), ms);
   }
 
+  /** Diisi saat pengguna kembali dari tautan atur ulang kata sandi. */
+  passwordResetPending = false;
+
+  /**
+   * Tautan verifikasi email / atur ulang kata sandi dari Nhost kembali ke
+   * `<origin>/?refreshToken=…&type=…`. Token dipakai untuk masuk, lalu dihapus dari URL.
+   */
+  private async consumeRedirect(): Promise<void> {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('refreshToken');
+    const type = params.get('type');
+    const err = params.get('errorDescription') ?? params.get('error');
+    if (!token && !err) return;
+    history.replaceState(null, '', window.location.pathname + window.location.hash);
+    if (err) throw new AuthError(`Tautan dari email tidak valid: ${err}`, 'redirect-error');
+    const r = await post<RawSession>('/token', { refreshToken: token });
+    this.set(toStored(r));
+    if (type === 'passwordReset') this.passwordResetPending = true;
+  }
+
   /** Memulihkan sesi saat aplikasi dibuka. */
   async init(): Promise<NhostUser | null> {
+    await this.consumeRedirect();
     if (!this.session) return null;
     try {
       await this.getAccessToken();
@@ -161,7 +184,7 @@ class NhostAuth {
     const r = await post<{ session: RawSession | null }>('/signup/email-password', {
       email,
       password,
-      options: displayName ? { displayName } : {},
+      options: { redirectTo: window.location.origin, ...(displayName ? { displayName } : {}) },
     });
     if (!r.session) return null;
     this.set(toStored(r.session));
@@ -175,7 +198,13 @@ class NhostAuth {
   }
 
   async resetPassword(email: string): Promise<void> {
-    await post('/user/password/reset', { email });
+    await post('/user/password/reset', { email, options: { redirectTo: window.location.origin } });
+  }
+
+  async changePassword(newPassword: string): Promise<void> {
+    const token = await this.getAccessToken();
+    await post('/user/password', { newPassword }, token);
+    this.passwordResetPending = false;
   }
 
   /** Token akses yang masih berlaku ≥ 60 detik; diperbarui bila perlu (sekali untuk semua tab). */
