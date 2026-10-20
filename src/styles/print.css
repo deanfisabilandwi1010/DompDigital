@@ -1,0 +1,21 @@
+/* Laporan A4: simpan sebagai PDF melalui dialog cetak browser (bukan engine PDF terpisah). */
+@page {
+  size: A4;
+  margin: 14mm 12mm;
+}
+
+@media print {
+  body { background: #fff !important; font-size: 11pt; }
+  .sidebar, .topbar, .bottom-nav, .fab, .demo-banner, .toasts, .no-print, .window__actions, .window__dots { display: none !important; }
+  .app { display: block; }
+  .content { padding: 0; max-width: none; gap: 10px; }
+  .window, .money-card, .envelope__body { box-shadow: none !important; break-inside: avoid; }
+  .window__bar { background: #f2f2f2 !important; }
+  .grid--4 { grid-template-columns: repeat(4, 1fr) !important; }
+  .grid--2, .grid--2-1, .grid--3 { grid-template-columns: repeat(2, 1fr) !important; }
+  .print-only { display: block !important; }
+  .table-wrap { overflow: visible; }
+  a { color: inherit; text-decoration: none; }
+  .hero-strip img { width: 64px; height: 64px; }
+}
+.print-only { display: none; }
