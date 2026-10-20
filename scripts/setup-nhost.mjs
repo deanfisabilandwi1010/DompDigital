@@ -1,4 +1,5 @@
-// Menerapkan schema Kantong ke proyek Nhost: SQL (tabel, trigger) + metadata Hasura (track tabel, permission role "user").
+// Menerapkan schema Kantong ke proyek Nhost secara langsung: SQL (tabel, trigger) + metadata Hasura (track tabel, permission role "user").
+// Jalur utama setelah integrasi Git Nhost: push ke GitHub → Nhost menerapkan nhost/migrations + nhost/metadata. Script ini cadangan/bootstrap.
 // Pemakaian: isi NHOST_ADMIN_SECRET di .env.local, lalu `npm run setup:nhost`. Aman dijalankan ulang.
 // Admin secret hanya dipakai di mesin Anda dan tidak pernah dikirim ke browser.
 
@@ -30,7 +31,7 @@ async function call(path, body) {
 }
 
 console.log(`→ Menerapkan schema SQL ke ${subdomain} (${region})`);
-const sql = await readFile('database/schema.sql', 'utf8');
+const sql = await readFile('nhost/migrations/default/1792520000000_kantong_init/up.sql', 'utf8');
 const r1 = await call('/v2/query', { type: 'run_sql', args: { source: 'default', sql, cascade: false, read_only: false } });
 if (!r1.ok) {
   console.error('Gagal menjalankan SQL:', JSON.stringify(r1.json, null, 2));

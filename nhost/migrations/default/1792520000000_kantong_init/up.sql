@@ -1,5 +1,5 @@
--- Kantong — schema Postgres untuk Nhost (Hasura). Versi schema: 1
--- Idempoten: aman dijalankan ulang. Diterapkan oleh `npm run setup:nhost`.
+-- Kantong — migrasi awal Postgres untuk Nhost (Hasura). Versi schema: 1
+-- Idempoten: aman dijalankan ulang. Diterapkan oleh deploy Git Nhost atau `npm run setup:nhost`.
 --
 -- Prinsip:
 --  * Setiap baris milik satu pengguna (user_id → auth.users). Isolasi ditegakkan permission Hasura

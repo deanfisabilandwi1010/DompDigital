@@ -1,0 +1,40 @@
+table:
+  name: audit_events
+  schema: public
+insert_permissions:
+  - role: user
+    permission:
+      check:
+        user_id:
+          _eq: X-Hasura-User-Id
+      set:
+        user_id: X-Hasura-User-Id
+      columns:
+        - id
+        - entity_type
+        - entity_id
+        - action
+        - before
+        - after
+        - created_at
+select_permissions:
+  - role: user
+    permission:
+      columns:
+        - id
+        - user_id
+        - entity_type
+        - entity_id
+        - action
+        - before
+        - after
+        - created_at
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id
+delete_permissions:
+  - role: user
+    permission:
+      filter:
+        user_id:
+          _eq: X-Hasura-User-Id

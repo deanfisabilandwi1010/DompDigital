@@ -26,32 +26,45 @@ Mode demo langsung bisa dipakai. Catatan pribadi baru bisa dipakai setelah **set
 | `npm run build` | Typecheck + build produksi ke `dist/` |
 | `npm run typecheck` | Hanya typecheck |
 | `npm test` | Tes domain + integrasi repository (Vitest) |
-| `npm run setup:nhost` | Memasang schema, trigger, dan permission ke proyek Nhost |
+| `npm run setup:nhost` | Bootstrap manual schema, trigger, dan permission ke Nhost (cadangan jalur Git) |
 | `npm run assets` | Membuat ulang ilustrasi PNG/WebP dari `Assets/` |
 
-## Setup Nhost (sekali saja)
+## Alur deploy: satu pintu lewat GitHub
 
-1. Salin `.env.example` menjadi `.env.local` (sudah dibuat). Isi `NHOST_ADMIN_SECRET` dengan nilai dari dashboard Nhost: **Project Settings → Secrets** (Hasura admin secret).
-   `.env.local` sudah masuk `.gitignore`. Admin secret hanya dipakai script di mesin Anda dan tidak pernah dikirim ke browser.
-2. Jalankan:
-   ```bash
-   npm run setup:nhost
-   ```
-   Script ini idempoten (aman dijalankan ulang). Isinya:
-   - membuat tabel, constraint, dan trigger dari [database/schema.sql](database/schema.sql);
-   - men-track tabel di Hasura;
-   - memberi role `user` permission select/insert/update/delete yang dibatasi `user_id = X-Hasura-User-Id`.
-3. Di dashboard Nhost, buka **Authentication** lalu periksa:
-   - **Client URL / Allowed redirect URLs** memuat `http://localhost:3000`, juga URL produksi bila sudah di-deploy.
-   - **Email verification**: bila diaktifkan, pengguna baru harus mengklik tautan verifikasi sebelum bisa masuk.
-4. **Disarankan:** matikan **Public access** Postgres di Database Settings. Aplikasi tidak memakainya, karena semua akses lewat GraphQL dengan JWT. Akses publik langsung ke port 5432 hanya menambah permukaan serangan. Nyalakan lagi sementara bila Anda perlu klien SQL.
+```text
+push ke master (GitHub: deanfisabilandwi1010/DompDigital)
+ ├─► Vercel  → build Vite → https://dompetqu-personal.vercel.app
+ └─► Nhost   → nhost/migrations + nhost/metadata + nhost/nhost.toml → database, Hasura, Auth
+```
 
-## Deploy (GitHub → Vercel)
+### Vercel (frontend)
 
-- Produksi: https://dompetqu-personal.vercel.app. Setiap push ke `master` di GitHub otomatis di-deploy oleh Vercel.
-- [vercel.json](vercel.json) mengatur build Vite (`dist/`), cache aset, dan header keamanan. CSP membatasi koneksi hanya ke endpoint Auth & GraphQL Nhost proyek ini.
+- Setiap push ke `master` otomatis di-deploy.
+- [vercel.json](vercel.json) mengatur build Vite (`dist/`), cache aset, dan header keamanan. CSP hanya mengizinkan koneksi ke endpoint Auth & GraphQL Nhost proyek ini.
 - Tidak perlu env var di Vercel. Subdomain & region Nhost adalah identitas publik dan punya nilai bawaan di [src/data/config.ts](src/data/config.ts). `VITE_NHOST_*` tetap bisa dipakai untuk menimpanya.
-- Tautan verifikasi email & atur ulang kata sandi kembali ke domain tempat pengguna mendaftar (`redirectTo`). Domain itu harus diizinkan di Nhost: **Authentication → Allowed Redirect URLs** memuat `https://dompetqu-personal.vercel.app` dan `http://localhost:3000`.
+
+### Nhost (backend)
+
+Folder [nhost/](nhost/) berformat Nhost CLI:
+
+| Path | Isi |
+|---|---|
+| `nhost/nhost.toml` | Konfigurasi proyek: Auth, Hasura, Postgres. Termasuk Allowed Redirect URLs Vercel + localhost. |
+| `nhost/migrations/default/…_kantong_init/up.sql` | Schema Kantong: tabel, constraint, trigger versi, trigger dana alokasi |
+| `nhost/metadata/` | Metadata Hasura **lengkap**: tabel auth/storage bawaan Nhost + 12 tabel Kantong beserta permission role `user` |
+| `nhost/config.yaml` | Konfigurasi Hasura CLI (tanpa rahasia) |
+
+Setelah repo disambungkan ke Nhost (**Settings → Git → Connect repository**, branch `master`, base directory kosong/root), setiap push menerapkan migrasi, metadata, dan konfigurasi tersebut.
+
+- **Mengubah schema:** tambahkan folder migrasi baru (`nhost/migrations/default/<timestamp>_<nama>/up.sql` + `down.sql`). Jangan mengedit migrasi yang sudah diterapkan.
+- **Mengubah tracking/permission:** edit `nhost/metadata/`. Metadata diterapkan sebagai *pengganti penuh*, jadi jangan menghapus file tabel auth/storage.
+- **Pengaturan di dashboard** (mis. redirect URL) akan ditimpa `nhost.toml` pada deploy berikutnya. Ubahlah lewat file ini.
+
+### Bootstrap manual (cadangan)
+
+`npm run setup:nhost` menerapkan migrasi & permission langsung ke proyek tanpa lewat Git. Script membutuhkan `NHOST_ADMIN_SECRET` di `.env.local`. File itu masuk `.gitignore`, dan secret tidak pernah dikirim ke browser. Script ini idempoten. Proyek saat ini **sudah** di-bootstrap: migrasi `kantong_init` tercatat sebagai terapan, sehingga deploy Git tidak menjalankannya ulang.
+
+**Disarankan:** matikan `enablePublicAccess` (Postgres) di `nhost.toml`. Aplikasi tidak memakainya, karena semua akses lewat GraphQL + JWT.
 
 ## Struktur
 
@@ -66,7 +79,7 @@ src/
   components/ RetroWindow, MoneyCard, AmountInput, Dialog, grafik SVG + tabel alternatif, dll.
   styles/    token & komponen (global.css), print A4 (print.css)
   tests/     fixture acceptance, domain, integrasi IndexedDB
-database/schema.sql   schema Postgres + trigger
+nhost/             proyek Nhost: nhost.toml, migrasi, metadata Hasura
 public/assets/retro ilustrasi (PNG + WebP, dari Assets/)
 ```
 
@@ -107,7 +120,12 @@ Saldo tidak pernah disimpan. Semua angka dihitung dari record sumber oleh `domai
     - privasi menyamarkan semua nominal;
     - refresh mempertahankan data.
 
-**Belum diverifikasi:** alur catatan pribadi end-to-end terhadap Nhost (login, simpan, trigger alokasi, restore). Pengujian ini menunggu `npm run setup:nhost` dengan admin secret Anda.
+- Uji end-to-end terhadap **Nhost asli** dengan pengguna uji sementara, yang sudah dihapus setelah selesai:
+  - login, onboarding, dan catat transaksi; data bertahan setelah reload;
+  - dua sesi mengalokasikan dana bersamaan: trigger server menolak satu dengan pesan "Dana tersedia hanya …";
+  - edit basi dari sesi lain ditolak (konflik versi) lalu data dimuat ulang;
+  - backup → ubah data → restore: saldo & alokasi historis pulih;
+  - hapus seluruh data kembali ke onboarding.
 
 ## Keterbatasan nyata (versi awal)
 
